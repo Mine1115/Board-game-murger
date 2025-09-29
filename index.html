@@ -52,17 +52,6 @@
             flex-wrap: wrap;
             margin: 20px 0;
         }
-        .variant-button {
-            padding: 8px 16px;
-            background-color: #e0e0e0;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .variant-button.active {
-            background-color: #007bff;
-            color: white;
-        }
         .back-button {
             padding: 8px 16px;
             background-color: #f0f0f0;
@@ -77,6 +66,96 @@
         }
         .markdown-content h1, .markdown-content h2 {
             text-align: left;
+        }
+        .game-settings {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .setting-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            margin-right: 10px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider {
+            background-color: #2196F3;
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        .merge-section {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .merge-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .merge-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .merge-item {
+            background-color: #d0e8f2;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .merge-item.selected {
+            background-color: #2196F3;
+            color: white;
         }
     </style>
 </head>
@@ -95,9 +174,29 @@
         <div id="gameRulesView" style="display: none;">
             <button class="back-button" id="backButton">← Back to Games</button>
             <h2 id="gameTitle">Game Title</h2>
-            <div class="variant-selector" id="variantSelector">
-                <!-- Variant buttons will be loaded here -->
+            
+            <!-- Game Settings Section -->
+            <div class="game-settings">
+                <h3>Game Settings</h3>
+                <div class="settings-grid" id="gameSettings">
+                    <!-- Settings will be loaded here -->
+                </div>
             </div>
+            
+            <!-- Variant Toggles -->
+            <h3>Game Variants</h3>
+            <div class="variant-selector" id="variantSelector">
+                <!-- Variant toggles will be loaded here -->
+            </div>
+            
+            <!-- Merge Section -->
+            <div class="merge-section">
+                <div class="merge-title">Merge with other games:</div>
+                <div class="merge-list" id="mergeList">
+                    <!-- Merge options will be loaded here -->
+                </div>
+            </div>
+            
             <div class="game-rules">
                 <div class="markdown-content" id="rulesContent">
                     <!-- Markdown content will be loaded here -->
@@ -110,6 +209,9 @@
         // Current state
         let currentGame = null;
         let currentVariant = null;
+        let mergedGames = [];
+        let allGames = [];
+        let gameVariants = [];
         
         // DOM elements
         const gameListView = document.getElementById('gameListView');
@@ -118,6 +220,8 @@
         const variantSelector = document.getElementById('variantSelector');
         const rulesContent = document.getElementById('rulesContent');
         const backButton = document.getElementById('backButton');
+        const gameSettings = document.getElementById('gameSettings');
+        const mergeList = document.getElementById('mergeList');
         
         // Function to fetch JSON data
         async function fetchJSON(url) {
@@ -152,6 +256,7 @@
             const games = await fetchJSON('./games/gamesList.json');
             if (!games) return;
             
+            allGames = games;
             const gameListElement = document.getElementById('gameList');
             gameListElement.innerHTML = '';
             
@@ -170,6 +275,7 @@
         // Function to load game rules and variants
         async function loadGameRules(gameId) {
             currentGame = gameId;
+            mergedGames = [];
             
             // Load game variants
             const variants = await fetchJSON(`./games/${gameId}/variants.json`);
@@ -178,48 +284,194 @@
                 return;
             }
             
+            gameVariants = variants;
+            
             // Update game title
-            const games = await fetchJSON('./games/gamesList.json');
-            const game = games.find(g => g.id === gameId);
+            const game = allGames.find(g => g.id === gameId);
             gameTitle.textContent = game ? game.name : gameId;
             
-            // Clear and populate variant selector
-            variantSelector.innerHTML = '';
-            variants.forEach(variant => {
-                const button = document.createElement('button');
-                button.className = 'variant-button';
-                button.textContent = variant.name;
-                button.onclick = () => loadVariantRules(variant);
-                variantSelector.appendChild(button);
-            });
+            // Load game settings
+            loadGameSettings(game);
             
-            // Load the first variant by default
-            loadVariantRules(variants[0]);
+            // Clear and populate variant selector with toggles
+            loadVariantToggles(variants);
+            
+            // Load merge options
+            loadMergeOptions(gameId);
+            
+            // Load the first enabled variant by default
+            // const defaultVariant = variants.find(v => v.enabled) || variants[0];
+            // loadVariantRules(defaultVariant);
+            renderAllEnabledVariantRules();
             
             // Switch to game rules view
             gameListView.style.display = 'none';
             gameRulesView.style.display = 'block';
         }
         
-        // Function to load specific variant rules
-        async function loadVariantRules(variant) {
-            currentVariant = variant.id;
+        // Function to load game settings
+        function loadGameSettings(game) {
+            gameSettings.innerHTML = '';
             
-            // Update active button
-            document.querySelectorAll('.variant-button').forEach(button => {
-                button.classList.remove('active');
-                if (button.textContent === variant.name) {
-                    button.classList.add('active');
-                }
-            });
-            
-            // Load markdown content
-            const markdownContent = await fetchMarkdown(`./games/${currentGame}/${variant.rules_file}`);
-            rulesContent.innerHTML = marked.parse(markdownContent);
-            
-            // Show rules container
-            document.querySelector('.game-rules').style.display = 'block';
+            if (game && game.settings) {
+                const settings = game.settings;
+                
+                // Calculate total hand size based on variants and merged games
+                let totalHandSize = settings.starting_hand_size;
+                let handSizeModifiers = 0;
+                
+                // Add variant modifiers
+                gameVariants.forEach(variant => {
+                    if (variant.enabled && variant.settings && variant.settings.hand_size_modifier) {
+                        handSizeModifiers += variant.settings.hand_size_modifier;
+                    }
+                });
+                
+                // Add merged game modifiers
+                mergedGames.forEach(mergedGameId => {
+                    const mergedGame = allGames.find(g => g.id === mergedGameId);
+                    if (mergedGame && mergedGame.settings && mergedGame.settings.hand_size_increment) {
+                        handSizeModifiers += mergedGame.settings.hand_size_increment;
+                    }
+                });
+                
+                totalHandSize += handSizeModifiers;
+                
+                // Create settings elements
+                const settingItems = [
+                    { label: 'Starting Hand Size', value: `${settings.starting_hand_size} + ${handSizeModifiers} = ${totalHandSize}` },
+                    { label: 'Min Players', value: settings.min_players },
+                    { label: 'Max Players', value: settings.max_players }
+                ];
+                
+                settingItems.forEach(item => {
+                    const settingElement = document.createElement('div');
+                    settingElement.className = 'setting-item';
+                    settingElement.innerHTML = `
+                        <div class="setting-label">${item.label}</div>
+                        <div>${item.value}</div>
+                    `;
+                    gameSettings.appendChild(settingElement);
+                });
+            }
         }
+        
+        // Function to load variant toggles
+        function loadVariantToggles(variants) {
+            variantSelector.innerHTML = '';
+            
+            variants.forEach(variant => {
+                const toggleContainer = document.createElement('div');
+                toggleContainer.className = 'toggle-container';
+                
+                const toggleLabel = document.createElement('label');
+                toggleLabel.className = 'toggle-switch';
+                
+                const toggleInput = document.createElement('input');
+                toggleInput.type = 'checkbox';
+                toggleInput.checked = variant.enabled;
+                toggleInput.onchange = () => toggleVariant(variant, toggleInput.checked);
+                
+                const toggleSlider = document.createElement('span');
+                toggleSlider.className = 'toggle-slider';
+                
+                toggleLabel.appendChild(toggleInput);
+                toggleLabel.appendChild(toggleSlider);
+                
+                toggleContainer.appendChild(toggleLabel);
+                toggleContainer.appendChild(document.createTextNode(variant.name));
+                
+                variantSelector.appendChild(toggleContainer);
+            });
+        }
+        
+        // Function to toggle a variant
+        function toggleVariant(variant, enabled) {
+            // Update the variant's enabled state
+            variant.enabled = enabled;
+            
+            // Re-render all enabled variant rules
+            renderAllEnabledVariantRules();
+            
+            // Update game settings to reflect changes
+            const game = allGames.find(g => g.id === currentGame);
+            loadGameSettings(game);
+        }
+        
+        // Function to render all enabled variant rules
+        async function renderAllEnabledVariantRules() {
+            rulesContent.innerHTML = ''; // Clear previous rules
+            
+            for (const variant of gameVariants) {
+                if (variant.enabled) {
+                    const markdownContent = await fetchMarkdown(`./games/${currentGame}/${variant.rules_file}`);
+                    const variantTitle = document.createElement('h3');
+                    variantTitle.textContent = variant.name;
+                    rulesContent.appendChild(variantTitle);
+                    rulesContent.innerHTML += marked.parse(markdownContent);
+                }
+            }
+            
+            // Show rules container if any variant is enabled
+            if (gameVariants.some(v => v.enabled)) {
+                document.querySelector('.game-rules').style.display = 'block';
+            } else {
+                document.querySelector('.game-rules').style.display = 'none';
+            }
+        }
+        
+        // Function to load merge options
+        function loadMergeOptions(currentGameId) {
+            mergeList.innerHTML = '';
+            
+            // Filter out the current game
+            const otherGames = allGames.filter(game => game.id !== currentGameId);
+            
+            otherGames.forEach(game => {
+                const mergeItem = document.createElement('div');
+                mergeItem.className = 'merge-item';
+                mergeItem.textContent = game.name;
+                
+                // Check if this game is already merged
+                if (mergedGames.includes(game.id)) {
+                    mergeItem.classList.add('selected');
+                }
+                
+                mergeItem.onclick = () => toggleMergeGame(game.id, mergeItem);
+                mergeList.appendChild(mergeItem);
+            });
+        }
+        
+        // Function to toggle merging a game
+        function toggleMergeGame(gameId, element) {
+            const index = mergedGames.indexOf(gameId);
+            
+            if (index === -1) {
+                // Add to merged games
+                mergedGames.push(gameId);
+                element.classList.add('selected');
+            } else {
+                // Remove from merged games
+                mergedGames.splice(index, 1);
+                element.classList.remove('selected');
+            }
+            
+            // Update game settings to reflect changes
+            const game = allGames.find(g => g.id === currentGame);
+            loadGameSettings(game);
+        }
+        
+        // Function to load specific variant rules
+        // async function loadVariantRules(variant) {
+        //     currentVariant = variant.id;
+        // 
+        //     // Load markdown content
+        //     const markdownContent = await fetchMarkdown(`./games/${currentGame}/${variant.rules_file}`);
+        //     rulesContent.innerHTML = marked.parse(markdownContent);
+        // 
+        //     // Show rules container
+        //     document.querySelector('.game-rules').style.display = 'block';
+        // }
         
         // Back button handler
         backButton.addEventListener('click', () => {
@@ -227,6 +479,7 @@
             gameListView.style.display = 'block';
             currentGame = null;
             currentVariant = null;
+            mergedGames = [];
         });
         
         // Load games when the page loads

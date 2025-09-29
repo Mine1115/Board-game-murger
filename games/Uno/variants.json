@@ -3,12 +3,20 @@
     "id": "base",
     "name": "Base Game",
     "description": "The standard Uno card game with basic rules",
-    "rules_file": "base.md"
+    "rules_file": "base.md",
+    "enabled": true,
+    "settings": {
+      "hand_size_modifier": 0
+    }
   },
   {
     "id": "stacking",
     "name": "Stacking Variant",
     "description": "A variant where Draw 2 and Draw 4 cards can be stacked",
-    "rules_file": "stacking.md"
+    "rules_file": "stacking.md",
+    "enabled": false,
+    "settings": {
+      "hand_size_modifier": 1
+    }
   }
 ]
