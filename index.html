@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board Game Merge</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .game-list {
+            margin-top: 20px;
+        }
+        .game-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .game-item:hover {
+            background-color: #e0e0e0;
+        }
+        .game-variants {
+            margin-left: 20px;
+            display: none;
+        }
+        .variant-item {
+            padding: 8px;
+            margin-top: 5px;
+            background-color: #e8e8e8;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Board Game Collection</h1>
+    <div class="game-list" id="gameList">
+        <!-- Games will be loaded here -->
+    </div>
+
+    <script>
+        // Function to fetch and parse text files
+        async function fetchTextFile(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch ${url}: ${response.status}`);
+                }
+                return await response.text();
+            } catch (error) {
+                console.error(error);
+                return null;
+            }
+        }
+
+        // Function to load the main games list
+        async function loadGamesList() {
+            const gamesListText = await fetchTextFile('./games/gamesList.txt');
+            if (!gamesListText) return;
+            
+            const games = gamesListText.split('\n').filter(game => game.trim() !== '');
+            const gameListElement = document.getElementById('gameList');
+            
+            for (const game of games) {
+                const gameElement = document.createElement('div');
+                gameElement.className = 'game-item';
+                gameElement.textContent = game;
+                gameElement.onclick = () => toggleGameVariants(game, gameElement);
+                
+                const variantsContainer = document.createElement('div');
+                variantsContainer.className = 'game-variants';
+                variantsContainer.id = `variants-${game}`;
+                
+                gameElement.appendChild(variantsContainer);
+                gameListElement.appendChild(gameElement);
+                
+                // Load variants immediately
+                loadGameVariants(game, variantsContainer);
+            }
+        }
+
+        // Function to load game variants from a specific game directory
+        async function loadGameVariants(game, container) {
+            const gameVariantsText = await fetchTextFile(`./games/${game}/gamelist.txt`);
+            if (!gameVariantsText) return;
+            
+            const variants = gameVariantsText.split('\n').filter(variant => variant.trim() !== '');
+            
+            if (variants.length > 0) {
+                container.innerHTML = ''; // Clear any existing content
+                
+                for (const variant of variants) {
+                    const variantElement = document.createElement('div');
+                    variantElement.className = 'variant-item';
+                    variantElement.textContent = variant;
+                    variantElement.onclick = (event) => {
+                        event.stopPropagation();
+                        // Handle variant selection (e.g., load game rules)
+                        loadGameRules(game, variant);
+                    };
+                    
+                    container.appendChild(variantElement);
+                }
+            }
+        }
+
+        // Function to toggle display of game variants
+        function toggleGameVariants(game, gameElement) {
+            const variantsContainer = document.getElementById(`variants-${game}`);
+            if (variantsContainer.style.display === 'block') {
+                variantsContainer.style.display = 'none';
+            } else {
+                variantsContainer.style.display = 'block';
+            }
+        }
+
+        // Function to load game rules (placeholder for future implementation)
+        function loadGameRules(game, variant) {
+            console.log(`Loading rules for ${game} - ${variant}`);
+            // Future implementation: load and display game rules from markdown files
+            alert(`Selected ${variant} variant of ${game}`);
+        }
+
+        // Load games when the page loads
+        window.onload = loadGamesList;
+    </script>
+</body>
+</html>
