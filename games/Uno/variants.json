@@ -1,0 +1,14 @@
+[
+  {
+    "id": "base",
+    "name": "Base Game",
+    "description": "The standard Uno card game with basic rules",
+    "rules_file": "base.md"
+  },
+  {
+    "id": "stacking",
+    "name": "Stacking Variant",
+    "description": "A variant where Draw 2 and Draw 4 cards can be stacked",
+    "rules_file": "stacking.md"
+  }
+]
